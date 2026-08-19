@@ -1,0 +1,30 @@
+[package]
+name = "whatsapp-api-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+description = "Axum HTTP + WebSocket server for the whatsapp-api engine"
+
+[[bin]]
+name = "whatsapp-api-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+whatsapp-api-errors = { workspace = true }
+whatsapp-api-types = { workspace = true }
+whatsapp-api-engine = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+dotenvy = { workspace = true }
+futures = { workspace = true }
+utoipa = { workspace = true }
+chrono = { workspace = true }
+utoipa-scalar = { workspace = true }
+include_dir = "0.7"

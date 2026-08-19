@@ -1,12 +1,32 @@
 use dioxus::prelude::*;
 use whatsapp_api_types::domain::chat::{Chat, ChatKind};
-use whatsapp_api_types::domain::automation::{phone_to_jid, phones_to_jids};
+use whatsapp_api_types::domain::contact::ContactGroup;
 
-use crate::api;
-use crate::state::app_state::{ACTIVE_CHAT, CHAT_FILTER, CHATS, ChatFilter, SHOW_NEW_CHAT, SHOW_SETTINGS};
+use crate::state::app_state::{
+    ACTIVE_CHAT, CHAT_FILTER, CHATS, CONTACT_GROUPS, CONTACTS, CURRENT_VIEW, ChatFilter, CurrentView,
+    SHOW_NEW_CHAT,
+};
 
 #[component]
 pub fn Sidebar() -> Element {
+    let view = CURRENT_VIEW();
+
+    rsx! {
+        aside { class: "sidebar",
+            match view {
+                CurrentView::Chats => rsx! { ChatSidebar {} },
+                CurrentView::Contacts => rsx! { ContactSidebar {} },
+                CurrentView::Groups => rsx! { GroupSidebar {} },
+                CurrentView::Broadcast => rsx! { BroadcastSidebar {} },
+                CurrentView::Automations => rsx! { AutomationSidebar {} },
+            }
+            NewChatModal {}
+        }
+    }
+}
+
+#[component]
+fn ChatSidebar() -> Element {
     let chats = CHATS();
     let active = ACTIVE_CHAT();
     let filter = CHAT_FILTER();
@@ -18,55 +38,46 @@ pub fn Sidebar() -> Element {
         .collect();
 
     rsx! {
-        aside { class: "sidebar",
-            header { class: "sidebar-header",
-                div { class: "sidebar-brand",
-                    span { class: "brand-icon", "✦" }
-                    h2 { "WhatsApp API" }
-                }
+        header { class: "sidebar-header",
+            div { class: "sidebar-brand",
+                span { class: "brand-icon", "✦" }
+                h2 { "Chats" }
+            }
+            button {
+                class: "icon-button new-chat-button",
+                title: "New chat",
+                onclick: move |_| SHOW_NEW_CHAT.with_mut(|s| *s = true),
+                "＋"
+            }
+        }
+        div { class: "filter-tabs",
+            for tab in ChatFilter::ALL {
                 button {
-                    class: "icon-button new-chat-button",
-                    title: "New chat",
-                    onclick: move |_| SHOW_NEW_CHAT.with_mut(|s| *s = true),
-                    "＋"
-                }
-                button {
-                    class: "icon-button settings-button",
-                    title: "Settings & API",
-                    onclick: move |_| SHOW_SETTINGS.with_mut(|s| *s = true),
-                    "⚙"
+                    class: if filter == tab { "filter-tab active" } else { "filter-tab" },
+                    onclick: move |_| CHAT_FILTER.with_mut(|f| *f = tab),
+                    "{tab.label()}"
                 }
             }
-            div { class: "filter-tabs",
-                for tab in ChatFilter::ALL {
-                    button {
-                        class: if filter == tab { "filter-tab active" } else { "filter-tab" },
-                        onclick: move |_| CHAT_FILTER.with_mut(|f| *f = tab),
-                        "{tab.label()}"
-                    }
+        }
+        ul { class: "chat-list",
+            if filtered.is_empty() {
+                li { class: "chat-list-empty",
+                    p { "No chats in this category yet." }
                 }
-            }
-            ul { class: "chat-list",
-                if filtered.is_empty() {
-                    li { class: "chat-list-empty",
-                        p { "No chats in this category yet." }
-                    }
-                } else {
-                    for chat in filtered {
-                        SidebarItem {
-                            chat: chat.clone(),
-                            active: active.as_deref() == Some(chat.jid.as_str()),
-                        }
+            } else {
+                for chat in filtered {
+                    SidebarChatItem {
+                        chat: chat.clone(),
+                        active: active.as_deref() == Some(chat.jid.as_str()),
                     }
                 }
             }
         }
-        NewChatModal {}
     }
 }
 
 #[component]
-fn SidebarItem(chat: Chat, active: bool) -> Element {
+fn SidebarChatItem(chat: Chat, active: bool) -> Element {
     let jid = chat.jid.clone();
     let name = chat.name.clone();
     let preview = chat
@@ -89,10 +100,11 @@ fn SidebarItem(chat: Chat, active: bool) -> Element {
     rsx! {
         li {
             class: if active { "chat-item active" } else { "chat-item" },
-            onclick: move |_| ACTIVE_CHAT.with_mut(|c| *c = Some(jid.clone())),
-            div { class: "chat-item-avatar",
-                "{icon}"
-            }
+            onclick: move |_| {
+                ACTIVE_CHAT.with_mut(|c| *c = Some(jid.clone()));
+                CURRENT_VIEW.with_mut(|v| *v = CurrentView::Chats);
+            },
+            div { class: "chat-item-avatar", "{icon}" }
             div { class: "chat-item-body",
                 div { class: "chat-item-row",
                     div { class: "chat-item-name", "{name}" }
@@ -121,7 +133,113 @@ fn kind_meta(kind: ChatKind) -> (&'static str, &'static str, &'static str) {
 }
 
 #[component]
+fn ContactSidebar() -> Element {
+    let groups = CONTACT_GROUPS();
+    let contacts = CONTACTS();
+
+    rsx! {
+        header { class: "sidebar-header",
+            div { class: "sidebar-brand",
+                span { class: "brand-icon", "👤" }
+                h2 { "Contacts" }
+            }
+        }
+        div { class: "sidebar-section",
+            h4 { "Labels" }
+            ul { class: "context-list",
+                li { class: "context-item active",
+                    span { class: "context-icon", "👤" }
+                    span { class: "context-label", "All contacts" }
+                    span { class: "context-count", "{contacts.len()}" }
+                }
+                for group in groups {
+                    li { class: "context-item",
+                        span { class: "context-icon", "🏷" }
+                        span { class: "context-label", "{group.name}" }
+                        span { class: "context-count", "{group.contact_ids.len()}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn GroupSidebar() -> Element {
+    let groups = CONTACT_GROUPS();
+
+    rsx! {
+        header { class: "sidebar-header",
+            div { class: "sidebar-brand",
+                span { class: "brand-icon", "👥" }
+                h2 { "Groups" }
+            }
+        }
+        div { class: "sidebar-section",
+            h4 { "Contact groups" }
+            if groups.is_empty() {
+                p { class: "sidebar-empty", "No groups yet. Create one to broadcast to many contacts at once." }
+            } else {
+                ul { class: "context-list",
+                    for group in groups {
+                        SidebarGroupItem { group: group.clone() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn SidebarGroupItem(group: ContactGroup) -> Element {
+    rsx! {
+        li { class: "context-item",
+            span { class: "context-icon", "👥" }
+            span { class: "context-label", "{group.name}" }
+            span { class: "context-count", "{group.contact_ids.len()}" }
+        }
+    }
+}
+
+#[component]
+fn BroadcastSidebar() -> Element {
+    rsx! {
+        header { class: "sidebar-header",
+            div { class: "sidebar-brand",
+                span { class: "brand-icon", "📢" }
+                h2 { "Broadcast" }
+            }
+        }
+        div { class: "sidebar-section",
+            p { class: "sidebar-empty",
+                "Choose contact groups or enter phone numbers. Each recipient receives an individual message."
+            }
+        }
+    }
+}
+
+#[component]
+fn AutomationSidebar() -> Element {
+    rsx! {
+        header { class: "sidebar-header",
+            div { class: "sidebar-brand",
+                span { class: "brand-icon", "⚙" }
+                h2 { "Automations" }
+            }
+        }
+        div { class: "sidebar-section",
+            p { class: "sidebar-empty",
+                "Create scheduled messages, auto-replies, forwarders, and webhooks. Schedulers run every minute."
+            }
+        }
+    }
+}
+
+#[component]
 fn NewChatModal() -> Element {
+    use crate::api;
+    use whatsapp_api_types::domain::automation::{phone_to_jid, phones_to_jids};
+
     let show = SHOW_NEW_CHAT();
     let mut tab = use_signal(|| NewChatTab::Private);
     let mut phone = use_signal(String::new);

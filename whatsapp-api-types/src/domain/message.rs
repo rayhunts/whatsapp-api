@@ -47,3 +47,27 @@ pub struct Message {
     #[serde(default)]
     pub error: Option<String>,
 }
+
+/// Request body for sending a text message to a chat.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct SendMessageRequest {
+    #[schema(example = "hello from the docs")]
+    pub body: String,
+    #[serde(default = "default_text_type")]
+    #[schema(example = "text")]
+    pub r#type: String,
+}
+
+fn default_text_type() -> String {
+    "text".to_string()
+}
+
+/// Response returned after a message has been accepted by the server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct SendMessageResponse {
+    pub id: String,
+    pub jid: String,
+    pub body: String,
+    pub status: MessageStatus,
+    pub created_at: String,
+}

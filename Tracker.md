@@ -73,9 +73,9 @@ These already exist from `PLAN.md` and are the baseline for everything else.
 
 | # | Feature | Status | File | Notes |
 |---|---------|--------|------|-------|
-| 5.1 | Save contacts | ⏳ Planned | `Feature-07-Contacts-and-Groups.md` | CRUD contact book |
-| 5.2 | Contact groups / labels | ⏳ Planned | `Feature-07-Contacts-and-Groups.md` | For targeted broadcast |
-| 5.3 | WhatsApp group support | ⏳ Planned | `Feature-07-Contacts-and-Groups.md` | Send to `@g.us` JIDs |
+| 5.1 | Save contacts | ✅ Done | `Feature-07-Contacts-and-Groups.md` | CRUD contact book |
+| 5.2 | Contact groups / labels | ✅ Done | `Feature-07-Contacts-and-Groups.md` | For targeted broadcast |
+| 5.3 | WhatsApp group support | ✅ Done | `Feature-07-Contacts-and-Groups.md` | Send to `@g.us` JIDs |
 
 ---
 

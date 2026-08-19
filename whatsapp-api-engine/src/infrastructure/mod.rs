@@ -9,6 +9,10 @@ use whatsapp_api_types::domain::automation::{
     Automation, AutomationConfig, CreateAutomationRequest, UpdateAutomationRequest,
 };
 use whatsapp_api_types::domain::chat::{Chat, ChatKind, MessageRef};
+use whatsapp_api_types::domain::contact::{
+    Contact, ContactGroup, CreateContactGroupRequest, CreateContactRequest,
+    UpdateContactGroupRequest, UpdateContactRequest,
+};
 use whatsapp_api_types::domain::message::{Message, MessageDirection, MessageStatus};
 use whatsapp_api_types::domain::ws_event::WsEvent;
 use whatsapp_rust::prelude::*;
@@ -19,6 +23,7 @@ use whatsapp_rust::wacore_binary::JidExt;
 use crate::domain::{ConnectionState, QrPayload, WaEngine};
 
 pub mod automation;
+pub mod contacts;
 
 const EVENT_BUFFER: usize = 256;
 const MAX_MESSAGES_PER_CHAT: usize = 1000;
@@ -50,6 +55,7 @@ pub struct WhatsappEngine {
     last_qr: watch::Sender<Option<QrPayload>>,
     client: Arc<Mutex<Option<Arc<Client>>>>,
     automations: Arc<automation::AutomationStore>,
+    contacts: Arc<contacts::ContactStore>,
 }
 
 impl WhatsappEngine {
@@ -63,6 +69,11 @@ impl WhatsappEngine {
                 panic!("failed to open automation store: {e}")
             }),
         );
+        let contacts = Arc::new(
+            contacts::ContactStore::new(&db_path).unwrap_or_else(|e| {
+                panic!("failed to open contact store: {e}")
+            }),
+        );
         Self {
             db_path,
             registry: Arc::new(RwLock::new(Registry::default())),
@@ -71,6 +82,7 @@ impl WhatsappEngine {
             last_qr,
             client: Arc::new(Mutex::new(None)),
             automations,
+            contacts,
         }
     }
 
@@ -116,9 +128,11 @@ impl WhatsappEngine {
             .on_message({
                 let events = self.events.clone();
                 let registry = self.registry.clone();
+                let contacts = self.contacts.clone();
                 move |ctx| {
                     let events = events.clone();
                     let registry = registry.clone();
+                    let contacts = contacts.clone();
                     async move {
                         let Some(text) = ctx.message.text_content() else {
                             return;
@@ -128,6 +142,9 @@ impl WhatsappEngine {
                         } else {
                             ctx.info.push_name.clone()
                         };
+                        let sender_name = contacts
+                            .contact_name_for_jid(&ctx.info.source.sender.to_string())
+                            .unwrap_or(sender_name);
                         let message = Message {
                             id: ctx.info.id.clone(),
                             chat: ctx.info.source.chat.to_string(),
@@ -152,14 +169,16 @@ impl WhatsappEngine {
             .on_event_for(&[EventKind::HistorySync], {
                 let events = self.events.clone();
                 let registry = self.registry.clone();
+                let contacts = self.contacts.clone();
                 move |event, _client| {
                     let events = events.clone();
                     let registry = registry.clone();
+                    let contacts = contacts.clone();
                     async move {
                         let Event::HistorySync(lazy) = &*event else {
                             return;
                         };
-                        if seed_history(&registry, lazy).await {
+                        if seed_history(&registry, &contacts, lazy).await {
                             let _ = events.send(WsEvent::ChatsUpdated);
                         }
                     }
@@ -389,6 +408,95 @@ impl WaEngine for WhatsappEngine {
             chat.name = n;
         }
     }
+
+    async fn create_contact(&self, req: CreateContactRequest) -> AppResult<Contact> {
+        self.contacts.create_contact(req)
+    }
+
+    async fn list_contacts(&self) -> AppResult<Vec<Contact>> {
+        self.contacts.list_contacts()
+    }
+
+    async fn get_contact(&self, id: &str) -> AppResult<Contact> {
+        self.contacts.get_contact(id)
+    }
+
+    async fn update_contact(&self, id: &str, req: UpdateContactRequest) -> AppResult<Contact> {
+        self.contacts.update_contact(id, req)
+    }
+
+    async fn delete_contact(&self, id: &str) -> AppResult<()> {
+        self.contacts.delete_contact(id)
+    }
+
+    async fn create_contact_group(
+        &self,
+        req: CreateContactGroupRequest,
+    ) -> AppResult<ContactGroup> {
+        self.contacts.create_group(req)
+    }
+
+    async fn list_contact_groups(&self) -> AppResult<Vec<ContactGroup>> {
+        self.contacts.list_groups()
+    }
+
+    async fn get_contact_group(&self, id: &str) -> AppResult<ContactGroup> {
+        self.contacts.get_group(id)
+    }
+
+    async fn update_contact_group(
+        &self,
+        id: &str,
+        req: UpdateContactGroupRequest,
+    ) -> AppResult<ContactGroup> {
+        self.contacts.update_group(id, req)
+    }
+
+    async fn delete_contact_group(&self, id: &str) -> AppResult<()> {
+        self.contacts.delete_group(id)
+    }
+
+    async fn broadcast(
+        &self,
+        group_ids: &[String],
+        to: &[String],
+        message: &str,
+    ) -> AppResult<usize> {
+        if message.trim().is_empty() {
+            return Err(AppError::InvalidInput("message is empty".into()));
+        }
+        let targets = self.contacts.resolve_broadcast_targets(group_ids, to)?;
+        if targets.is_empty() {
+            return Err(AppError::InvalidInput("no valid broadcast targets".into()));
+        }
+        for jid in &targets {
+            self.ensure_chat(jid, None).await;
+        }
+        let total = targets.len();
+        let text = message.to_string();
+        let engine = self.clone();
+        tokio::spawn(async move {
+            for jid in targets {
+                let _ = engine.send_text(&jid, &text).await;
+            }
+        });
+        Ok(total)
+    }
+}
+
+impl Clone for WhatsappEngine {
+    fn clone(&self) -> Self {
+        Self {
+            db_path: self.db_path.clone(),
+            registry: self.registry.clone(),
+            events: self.events.clone(),
+            state: self.state.clone(),
+            last_qr: self.last_qr.clone(),
+            client: self.client.clone(),
+            automations: self.automations.clone(),
+            contacts: self.contacts.clone(),
+        }
+    }
 }
 
 /// Send plain text to a JID, tracking the message in the registry from
@@ -510,18 +618,23 @@ fn handle_receipt(
 
 /// Fold a WhatsApp history-sync chunk into the registry, then return whether
 /// anything was recorded (so the caller can announce `ChatsUpdated`).
-async fn seed_history(registry: &Arc<RwLock<Registry>>, lazy: &LazyHistorySync) -> bool {
+async fn seed_history(
+    registry: &Arc<RwLock<Registry>>,
+    contacts: &Arc<contacts::ContactStore>,
+    lazy: &LazyHistorySync,
+) -> bool {
     let registry = registry.clone();
+    let contacts = contacts.clone();
     let lazy = lazy.clone();
     tokio::task::spawn_blocking(move || {
         let mut stream = lazy.stream();
         let mut seeded = false;
         loop {
-            match stream.next_conversation() {
-                Ok(Some(conversation)) => {
-                    seed_conversation(&registry, conversation);
-                    seeded = true;
-                }
+        match stream.next_conversation() {
+            Ok(Some(conversation)) => {
+                seed_conversation(&registry, &contacts, conversation);
+                seeded = true;
+            }
                 Ok(None) => break,
                 Err(e) => {
                     warn!("history sync chunk failed to decode: {e}");
@@ -535,7 +648,11 @@ async fn seed_history(registry: &Arc<RwLock<Registry>>, lazy: &LazyHistorySync) 
     .unwrap_or(false)
 }
 
-fn seed_conversation(registry: &Arc<RwLock<Registry>>, conversation: wa::Conversation) {
+fn seed_conversation(
+    registry: &Arc<RwLock<Registry>>,
+    contacts: &Arc<contacts::ContactStore>,
+    conversation: wa::Conversation,
+) {
     let chat_jid = conversation.id;
     let kind = ChatKind::from_jid(&chat_jid);
     let is_group = kind == ChatKind::Group;
@@ -577,10 +694,15 @@ fn seed_conversation(registry: &Arc<RwLock<Registry>>, conversation: wa::Convers
         let Some(sender) = sender else {
             continue;
         };
-        let sender_name = match info.push_name.as_deref() {
-            Some(name) if !name.is_empty() => name.to_string(),
-            _ => sender.split('@').next().unwrap_or(sender).to_string(),
-        };
+        let sender_name = contacts
+            .contact_name_for_jid(sender)
+            .or_else(|| {
+                info.push_name
+                    .as_deref()
+                    .filter(|n| !n.is_empty())
+                    .map(|n| n.to_string())
+            })
+            .unwrap_or_else(|| sender.split('@').next().unwrap_or(sender).to_string());
         let from_me = key.from_me.unwrap_or(false);
         messages.push(Message {
             id: key.id.clone().unwrap_or_default(),

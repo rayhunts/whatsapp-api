@@ -6,6 +6,10 @@ use whatsapp_api_types::domain::automation::{
     Automation, CreateAutomationRequest, UpdateAutomationRequest,
 };
 use whatsapp_api_types::domain::chat::Chat;
+use whatsapp_api_types::domain::contact::{
+    Contact, ContactGroup, CreateContactGroupRequest, CreateContactRequest,
+    UpdateContactGroupRequest, UpdateContactRequest,
+};
 use whatsapp_api_types::domain::message::Message;
 use whatsapp_api_types::domain::ws_event::WsEvent;
 
@@ -45,4 +49,23 @@ pub trait WaEngine: Send + Sync + 'static {
 
     /// Make sure a chat entry exists in the registry, creating it if necessary.
     async fn ensure_chat(&self, jid: &str, name: Option<String>);
+
+    async fn create_contact(&self, req: CreateContactRequest) -> AppResult<Contact>;
+    async fn list_contacts(&self) -> AppResult<Vec<Contact>>;
+    async fn get_contact(&self, id: &str) -> AppResult<Contact>;
+    async fn update_contact(&self, id: &str, req: UpdateContactRequest) -> AppResult<Contact>;
+    async fn delete_contact(&self, id: &str) -> AppResult<()>;
+
+    async fn create_contact_group(&self, req: CreateContactGroupRequest) -> AppResult<ContactGroup>;
+    async fn list_contact_groups(&self) -> AppResult<Vec<ContactGroup>>;
+    async fn get_contact_group(&self, id: &str) -> AppResult<ContactGroup>;
+    async fn update_contact_group(
+        &self,
+        id: &str,
+        req: UpdateContactGroupRequest,
+    ) -> AppResult<ContactGroup>;
+    async fn delete_contact_group(&self, id: &str) -> AppResult<()>;
+
+    /// Broadcast a message to the resolved targets. Returns the number of queued messages.
+    async fn broadcast(&self, group_ids: &[String], to: &[String], message: &str) -> AppResult<usize>;
 }

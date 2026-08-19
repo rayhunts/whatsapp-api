@@ -133,7 +133,7 @@ fn Composer(jid: String) -> Element {
                 spawn(async move {
                     sending.with_mut(|s| *s = true);
                     if let Err(err) = api::client::send_text(&chat_jid, &text).await {
-                        error.set(Some(format!("failed to send: {err}")));
+                        error.set(Some(err));
                     }
                     sending.with_mut(|s| *s = false);
                 });

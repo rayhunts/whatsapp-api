@@ -1,5 +1,10 @@
+pub mod automations;
+pub mod broadcast;
 pub mod chat_window;
+pub mod contacts;
+pub mod groups;
 pub mod login;
 pub mod message_bubble;
+pub mod navigation;
 pub mod settings;
 pub mod sidebar;

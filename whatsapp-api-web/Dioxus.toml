@@ -1,0 +1,8 @@
+[application]
+name = "whatsapp-api-web"
+
+[[web.proxy]]
+backend = "http://localhost:8081/api"
+
+[[web.proxy]]
+backend = "http://localhost:8081/ws"

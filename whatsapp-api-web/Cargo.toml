@@ -1,0 +1,26 @@
+[package]
+name = "whatsapp-api-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+description = "Dioxus (WASM) web client for the whatsapp-api server"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+whatsapp-api-types = { workspace = true }
+dioxus = { workspace = true }
+dioxus-logger = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+futures = { workspace = true }
+gloo-net = { workspace = true }
+gloo-timers = { workspace = true }
+js-sys = { workspace = true }
+tracing = { workspace = true }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true }

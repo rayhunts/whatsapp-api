@@ -1,0 +1,12 @@
+[package]
+name = "whatsapp-api-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+description = "Serde DTOs shared by the whatsapp-api server and the Dioxus web frontend"
+
+[dependencies]
+serde = { workspace = true }
+utoipa = { workspace = true }

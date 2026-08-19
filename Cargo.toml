@@ -1,0 +1,61 @@
+[workspace]
+members = [
+    "whatsapp-api-errors",
+    "whatsapp-api-types",
+    "whatsapp-api-engine",
+    "whatsapp-api-server",
+    "whatsapp-api-web",
+    "whatsapp-api-dev",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/rayhunts/whatsapp-api"
+readme = "README.md"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "process"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = { version = "0.8", features = ["ws"] }
+dotenvy = "0.15"
+futures = "0.3"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+base64 = "0.22"
+rusqlite = { version = "0.39", features = ["serde_json"] }
+cron = "0.15"
+regex = "1"
+ureq = { version = "2", features = ["json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+whatsapp-rust = { version = "0.7", default-features = false, features = [
+    "sqlite-storage",
+    "tokio-transport",
+    "tokio-runtime",
+    "ureq-client",
+    "tokio-native",
+] }
+
+whatsapp-api-errors = { version = "0.1.0", path = "whatsapp-api-errors" }
+whatsapp-api-types = { version = "0.1.0", path = "whatsapp-api-types" }
+whatsapp-api-engine = { version = "0.1.0", path = "whatsapp-api-engine" }
+
+utoipa = { version = "5", features = ["axum_extras"] }
+utoipa-scalar = { version = "0.3", features = ["axum"] }
+dioxus = { version = "0.7", features = ["web"] }
+dioxus-logger = "0.7"
+gloo-net = { version = "0.6" }
+gloo-timers = { version = "0.3", features = ["futures"] }
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Window", "Location", "Storage"] }

@@ -1,0 +1,4 @@
+[alias]
+# Run the backend and the Dioxus dev server with hot reload and labeled output.
+# Frontend: http://localhost:8080  Backend (proxied): http://localhost:8081
+dev = "run -p whatsapp-api-dev"

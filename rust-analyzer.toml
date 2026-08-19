@@ -1,0 +1,14 @@
+# Project-level rust-analyzer configuration.
+# https://rust-analyzer.github.io/manual.html#configuration
+
+[rust-analyzer]
+check.command = "clippy"
+check.extraArgs = ["--workspace"]
+checkOnSave = true
+cargo.buildScripts.enable = true
+cargo.features = "all"
+procMacro.enable = true
+
+# Help rust-analyzer understand the WASM crate target.
+# Per-crate settings are supported via the linkedProjects / override maps in
+# some editors; this file enables workspace-wide defaults.

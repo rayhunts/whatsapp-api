@@ -4534,6 +4534,7 @@ dependencies = [
  "tracing-subscriber",
  "utoipa",
  "utoipa-scalar",
+ "uuid",
  "whatsapp-api-engine",
  "whatsapp-api-errors",
  "whatsapp-api-types",

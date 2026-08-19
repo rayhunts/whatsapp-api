@@ -12,8 +12,11 @@ use whatsapp_api_engine::application::EngineService;
 
 use crate::infrastructure::http::openapi::ApiDoc;
 use crate::infrastructure::http::{
-    chat_messages, chats, create_automation, delete_automation, ensure_chat, get_automation,
-    health, list_automations, resolve_phone, send_message, trigger_automation, update_automation,
+    broadcast, chat_messages, chats, create_automation, create_contact, create_contact_group,
+    delete_automation, delete_contact, delete_contact_group, ensure_chat, get_automation,
+    get_contact, get_contact_group, health, list_automations, list_contact_groups, list_contacts,
+    resolve_phone, send_message, trigger_automation, update_automation, update_contact,
+    update_contact_group,
 };
 use crate::infrastructure::ws::WsHub;
 
@@ -45,6 +48,17 @@ pub fn build_app(service: EngineService) -> Router {
             get(get_automation).put(update_automation).delete(delete_automation),
         )
         .route("/api/automations/{id}/trigger", post(trigger_automation))
+        .route("/api/contacts", get(list_contacts).post(create_contact))
+        .route(
+            "/api/contacts/{id}",
+            get(get_contact).patch(update_contact).delete(delete_contact),
+        )
+        .route("/api/contact-groups", get(list_contact_groups).post(create_contact_group))
+        .route(
+            "/api/contact-groups/{id}",
+            get(get_contact_group).put(update_contact_group).delete(delete_contact_group),
+        )
+        .route("/api/broadcasts", post(broadcast))
         .route("/ws", get(crate::infrastructure::ws::ws_handler))
         .route("/openapi.json", get(openapi_json))
         .fallback(web_assets)

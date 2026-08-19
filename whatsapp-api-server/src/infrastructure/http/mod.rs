@@ -12,7 +12,11 @@ use whatsapp_api_types::domain::automation::{
     Automation, CreateAutomationRequest, UpdateAutomationRequest,
 };
 use whatsapp_api_types::domain::chat::{Chat, ChatKind};
-use whatsapp_api_types::domain::message::{Message, MessageStatus};
+use whatsapp_api_types::domain::contact::{
+    BroadcastRequest, BroadcastResponse, Contact, ContactGroup, CreateContactGroupRequest,
+    CreateContactRequest, UpdateContactGroupRequest, UpdateContactRequest,
+};
+use whatsapp_api_types::domain::message::{Message, SendMessageRequest, SendMessageResponse};
 
 use crate::application::AppState;
 
@@ -29,28 +33,6 @@ pub struct Health {
 #[derive(Serialize, ToSchema)]
 struct ErrorBody {
     error: String,
-}
-
-#[derive(serde::Deserialize, ToSchema)]
-pub struct SendMessageRequest {
-    #[schema(example = "hello from the docs")]
-    body: String,
-    #[serde(default = "default_text_type")]
-    #[schema(example = "text")]
-    r#type: String,
-}
-
-fn default_text_type() -> String {
-    "text".to_string()
-}
-
-#[derive(serde::Serialize, ToSchema)]
-pub struct SendMessageResponse {
-    pub id: String,
-    pub jid: String,
-    pub body: String,
-    pub status: MessageStatus,
-    pub created_at: String,
 }
 
 #[derive(serde::Deserialize, ToSchema)]
@@ -326,4 +308,195 @@ pub async fn trigger_automation(
 ) -> Result<StatusCode, ApiError> {
     state.service.trigger_automation(&id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/contacts",
+    tag = "contacts",
+    responses(
+        (status = 200, description = "Contact list", body = Vec<Contact>)
+    )
+)]
+pub async fn list_contacts(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Contact>>, ApiError> {
+    Ok(Json(state.service.list_contacts().await?))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/contacts",
+    tag = "contacts",
+    request_body = CreateContactRequest,
+    responses(
+        (status = 201, description = "Contact created", body = Contact)
+    )
+)]
+pub async fn create_contact(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateContactRequest>,
+) -> Result<(StatusCode, Json<Contact>), ApiError> {
+    let created = state.service.create_contact(req).await?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/contacts/{id}",
+    tag = "contacts",
+    responses(
+        (status = 200, description = "Contact details", body = Contact),
+        (status = 404, description = "Contact not found", body = ErrorBody)
+    )
+)]
+pub async fn get_contact(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Contact>, ApiError> {
+    Ok(Json(state.service.get_contact(&id).await?))
+}
+
+#[utoipa::path(
+    patch,
+    path = "/api/contacts/{id}",
+    tag = "contacts",
+    request_body = UpdateContactRequest,
+    responses(
+        (status = 200, description = "Contact updated", body = Contact),
+        (status = 404, description = "Contact not found", body = ErrorBody)
+    )
+)]
+pub async fn update_contact(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateContactRequest>,
+) -> Result<Json<Contact>, ApiError> {
+    Ok(Json(state.service.update_contact(&id, req).await?))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/contacts/{id}",
+    tag = "contacts",
+    responses(
+        (status = 204, description = "Contact deleted"),
+        (status = 404, description = "Contact not found", body = ErrorBody)
+    )
+)]
+pub async fn delete_contact(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    state.service.delete_contact(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/contact-groups",
+    tag = "contact groups",
+    responses(
+        (status = 200, description = "Contact group list", body = Vec<ContactGroup>)
+    )
+)]
+pub async fn list_contact_groups(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<ContactGroup>>, ApiError> {
+    Ok(Json(state.service.list_contact_groups().await?))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/contact-groups",
+    tag = "contact groups",
+    request_body = CreateContactGroupRequest,
+    responses(
+        (status = 201, description = "Contact group created", body = ContactGroup)
+    )
+)]
+pub async fn create_contact_group(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateContactGroupRequest>,
+) -> Result<(StatusCode, Json<ContactGroup>), ApiError> {
+    let created = state.service.create_contact_group(req).await?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/contact-groups/{id}",
+    tag = "contact groups",
+    responses(
+        (status = 200, description = "Contact group details", body = ContactGroup),
+        (status = 404, description = "Contact group not found", body = ErrorBody)
+    )
+)]
+pub async fn get_contact_group(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<ContactGroup>, ApiError> {
+    Ok(Json(state.service.get_contact_group(&id).await?))
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/contact-groups/{id}",
+    tag = "contact groups",
+    request_body = UpdateContactGroupRequest,
+    responses(
+        (status = 200, description = "Contact group updated", body = ContactGroup),
+        (status = 404, description = "Contact group not found", body = ErrorBody)
+    )
+)]
+pub async fn update_contact_group(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateContactGroupRequest>,
+) -> Result<Json<ContactGroup>, ApiError> {
+    Ok(Json(state.service.update_contact_group(&id, req).await?))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/contact-groups/{id}",
+    tag = "contact groups",
+    responses(
+        (status = 204, description = "Contact group deleted"),
+        (status = 404, description = "Contact group not found", body = ErrorBody)
+    )
+)]
+pub async fn delete_contact_group(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    state.service.delete_contact_group(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/broadcasts",
+    tag = "broadcasts",
+    request_body = BroadcastRequest,
+    responses(
+        (status = 202, description = "Broadcast queued", body = BroadcastResponse),
+        (status = 400, description = "Invalid request", body = ErrorBody)
+    )
+)]
+pub async fn broadcast(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<BroadcastRequest>,
+) -> Result<(StatusCode, Json<BroadcastResponse>), ApiError> {
+    let total = state
+        .service
+        .broadcast(&req.group_ids, &req.to, &req.message)
+        .await?;
+    let broadcast_id = uuid::Uuid::new_v4().to_string();
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(BroadcastResponse {
+            broadcast_id,
+            total,
+            status: "queued".into(),
+        }),
+    ))
 }

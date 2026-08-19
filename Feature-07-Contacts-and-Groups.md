@@ -81,8 +81,8 @@ Content-Type: application/json
 
 ## Acceptance criteria
 
-- [ ] Can create, list, update and delete contacts.
-- [ ] Can create contact groups and add/remove members.
-- [ ] Can broadcast to one or more contact groups.
-- [ ] WhatsApp group JIDs (`@g.us`) are accepted as send targets.
-- [ ] `cargo build --workspace` and `cargo clippy --workspace` pass.
+- [x] Can create, list, update and delete contacts.
+- [x] Can create contact groups and add/remove members.
+- [x] Can broadcast to one or more contact groups.
+- [x] WhatsApp group JIDs (`@g.us`) are accepted as send targets.
+- [x] `cargo build --workspace` and `cargo clippy --workspace` pass.

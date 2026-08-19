@@ -1,0 +1,12 @@
+[package]
+name = "whatsapp-api-dev"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+description = "Dev orchestrator that runs the backend and dx serve with labeled output"
+
+[dependencies]
+tokio = { workspace = true, features = ["process", "io-util"] }
+anyhow = { workspace = true }
